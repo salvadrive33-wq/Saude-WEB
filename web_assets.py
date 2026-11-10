@@ -183,12 +183,39 @@ FILES['public.css'] = """/* Public layout */
   justify-content: space-between;
   align-items: center;
 }
+.greet-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .greeting h2 {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 800;
   color: #143430;
   letter-spacing: -.02em;
+  cursor: pointer;
+}
+.greeting h2:hover {
+  color: var(--pri-dark);
+}
+.btn-edit-name {
+  background: rgba(0, 191, 165, 0.12);
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: .82rem;
+  color: var(--pri-dark);
+  transition: all .2s ease;
+}
+.btn-edit-name:hover {
+  background: var(--pri);
+  transform: scale(1.1);
 }
 .greeting p {
   margin: 2px 0 0;
@@ -203,6 +230,11 @@ FILES['public.css'] = """/* Public layout */
   border: 2px solid var(--pri);
   object-fit: cover;
   box-shadow: 0 4px 12px rgba(0,191,165,.25);
+  cursor: pointer;
+  transition: transform .2s ease;
+}
+.user-avatar:hover {
+  transform: scale(1.05);
 }
 .sub-top {
   background: linear-gradient(135deg, #00BFA5 0%, #009688 100%);
@@ -323,6 +355,10 @@ FILES['public.css'] = """/* Public layout */
   gap: .85rem;
   box-shadow: 0 8px 24px rgba(0,191,165,.22);
   cursor: pointer;
+  transition: transform .2s ease;
+}
+.tele-alert:hover {
+  transform: translateY(-2px);
 }
 .tele-icon {
   width: 42px;
@@ -390,6 +426,7 @@ FILES['public.css'] = """/* Public layout */
   font-weight: 800;
   font-size: .92rem;
   line-height: 1;
+  pointer-events: none;
 }
 .rt-card b {
   font-size: .95rem;
@@ -700,10 +737,13 @@ FILES['public.html'] = """<!doctype html>
 
 <header class="top-nav" id="top-nav">
   <div class="greeting">
-    <h2 id="greet-name">Olá, Denis H! 👋</h2>
+    <div class="greet-row">
+      <h2 id="greet-name" title="Clique para editar seu nome">Olá, Denis H! 👋</h2>
+      <button id="btn-edit-name" class="btn-edit-name" title="Editar seu nome" aria-label="Editar seu nome">✏️</button>
+    </div>
     <p>Saúde Ibiassucê · Telemedicina</p>
   </div>
-  <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" alt="Avatar" class="user-avatar">
+  <img id="user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" alt="Avatar" class="user-avatar" title="Seu perfil">
 </header>
 
 <header class="sub-top" id="sub-top" hidden>
@@ -790,7 +830,7 @@ const IC = {
 };
 const ico = k => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg>`;
 const TABS = [['home', 'Home'], ['servicos', 'Serviços'], ['avisos', 'Avisos'], ['ajustes', 'Ajustes']];
-const cache = {}, st = { book: {}, prefs: { hc: false, fs: 16 } };
+const cache = {}, st = { book: {}, filter: {}, prefs: { hc: false, fs: 16, userName: 'Denis H' } };
 
 async function api(path, opt = {}) {
   const slow = setTimeout(() => { $('#net').hidden = false; }, 4000);
@@ -812,11 +852,46 @@ function toast(t) { const e = $('#toast'); e.textContent = t; e.hidden = false; 
 const fd = d => d.split('-').reverse().join('/');
 const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
 const setMain = h => { $('#main').innerHTML = h; };
-function loadPrefs() { try { Object.assign(st.prefs, JSON.parse(localStorage.getItem('prefs') || '{}')); } catch (e) { } applyPrefs(); }
-function applyPrefs() { document.documentElement.classList.toggle('hc', st.prefs.hc); document.documentElement.style.fontSize = st.prefs.fs + 'px'; try { localStorage.setItem('prefs', JSON.stringify(st.prefs)); } catch (e) { } }
+
+function loadPrefs() {
+  try {
+    Object.assign(st.prefs, JSON.parse(localStorage.getItem('prefs') || '{}'));
+    const savedName = localStorage.getItem('userName');
+    if (savedName) st.prefs.userName = savedName;
+  } catch (e) { }
+  applyPrefs();
+}
+
+function applyPrefs() {
+  document.documentElement.classList.toggle('hc', !!st.prefs.hc);
+  document.documentElement.style.fontSize = (st.prefs.fs || 16) + 'px';
+  const gn = $('#greet-name');
+  if (gn) gn.textContent = `Olá, ${st.prefs.userName || 'Visitante'}! 👋`;
+  try {
+    localStorage.setItem('prefs', JSON.stringify({ hc: st.prefs.hc, fs: st.prefs.fs }));
+    localStorage.setItem('userName', st.prefs.userName || 'Denis H');
+  } catch (e) { }
+}
+
+function setUserName(name) {
+  const n = (name || '').trim();
+  if (!n) return;
+  st.prefs.userName = n;
+  applyPrefs();
+  toast(`Nome atualizado para "${n}"!`);
+}
+
+function promptEditName() {
+  const current = st.prefs.userName || 'Denis H';
+  const n = prompt('Como você gostaria de ser chamado no aplicativo?', current);
+  if (n && n.trim() && n.trim() !== current) {
+    setUserName(n.trim());
+  }
+}
 
 const accChips = u => [['ramp', 'Rampa'], ['wc', 'Banheiro adaptado'], ['libras', 'Intérprete de Libras']]
   .map(([k, l]) => `<span class="chip ${u[k] ? '' : 'no'}">${u[k] ? '' : 'Sem '}${l}</span>`).join('');
+
 const availText = u => {
   const by = {}; (u.availabilities || []).forEach(a => (by[a.weekday] = by[a.weekday] || []).push(`${a.starts}–${a.ends}`));
   return Object.keys(by).map(w => `${DIAS[w]} ${by[w].join(', ')}`).join(' · ') || 'Sem horários cadastrados';
@@ -838,16 +913,20 @@ const unitCard = u => `<article class="card">
   <button class="btn s" data-act="say" data-t="${esc(`${u.name}. ${u.type}. Endereço: ${u.address}.`)}">Ouvir</button>
 </article>`;
 
-const docCard = (d, i) => `
-<div class="doc-card" data-act="book-doc" data-doc="${d.id}" data-unit="${d.units && d.units[0] ? d.units[0].unit_id : ''}">
-  <img src="${docPic(d.id || i)}" alt="${esc(d.name)}" class="doc-pic">
-  <div class="doc-info">
-    <b>${esc(d.name)}</b>
-    <span class="spec">${esc(d.specialty)}</span>
-    <div class="rating"><b>★ 4.9</b> · ${d.units && d.units[0] ? esc(d.units[0].unit_name) : 'Ibiassucê'}</div>
-  </div>
-  <button class="doc-btn" data-act="book-doc" data-doc="${d.id}" data-unit="${d.units && d.units[0] ? d.units[0].unit_id : ''}">Agendar</button>
-</div>`;
+const docCard = (d, i) => {
+  const uId = (d.units && d.units[0]) ? d.units[0].unit_id : '';
+  const uName = (d.units && d.units[0]) ? d.units[0].unit_name : 'Ibiassucê';
+  return `
+  <div class="doc-card" data-act="book-doc" data-doc="${d.id}" data-unit="${uId}">
+    <img src="${docPic(d.id || i)}" alt="${esc(d.name)}" class="doc-pic">
+    <div class="doc-info">
+      <b>${esc(d.name)}</b>
+      <span class="spec">${esc(d.specialty)}</span>
+      <div class="rating"><b>★ 4.9</b> · ${esc(uName)}</div>
+    </div>
+    <button class="doc-btn" data-act="book-doc" data-doc="${d.id}" data-unit="${uId}">Agendar</button>
+  </div>`;
+};
 
 /* ---------- TELAS ---------- */
 async function vHome() {
@@ -924,7 +1003,7 @@ async function vHome() {
   </div>
   <div class="cat-scroll">
     ${CATS.map(c => `
-      <div class="cat-item" data-go="medicos" data-cat="${esc(c.name)}">
+      <div class="cat-item" data-cat="${esc(c.name)}">
         <img src="${c.img}" alt="${esc(c.name)}">
         <div class="cat-overlay"><span>${esc(c.name)}</span></div>
       </div>
@@ -937,17 +1016,7 @@ async function vHome() {
     <span data-go="medicos">Filtrar</span>
   </div>
   <div id="home-docs">
-    ${docs.slice(0, 3).map(docCard).join('') || `
-      <div class="doc-card" data-go="agendar">
-        <img src="${DOC_AVATARS[0]}" class="doc-pic">
-        <div class="doc-info">
-          <b>Dra. Annie Lee</b>
-          <span class="spec">Ortodontista</span>
-          <div class="rating"><b>★ 4.9</b> · UBS Centro</div>
-        </div>
-        <button class="doc-btn" data-go="agendar">Agendar</button>
-      </div>
-    `}
+    ${docs.slice(0, 4).map(docCard).join('') || '<p style="text-align:center;padding:1rem;color:var(--mut)">Carregando médicos...</p>'}
   </div>
 
   <div style="background:#F0FAF8;border:1.5px dashed var(--pri);border-radius:20px;padding:1rem 1.1rem;margin-top:1.2rem;text-align:center;">
@@ -961,11 +1030,23 @@ async function vHome() {
   $('#home-q').oninput = e => {
     const q = e.target.value.toLowerCase().trim();
     if (!q) {
-      $('#home-docs').innerHTML = docs.slice(0, 3).map(docCard).join('');
+      $('#home-docs').innerHTML = docs.slice(0, 4).map(docCard).join('');
       return;
     }
-    const matched = docs.filter(d => (d.name + d.specialty).toLowerCase().includes(q));
-    $('#home-docs').innerHTML = matched.map(docCard).join('') || '<p style="text-align:center;color:var(--mut);padding:1rem">Nenhum médico encontrado com esse nome.</p>';
+    const matchedDocs = docs.filter(d => (d.name + ' ' + d.specialty).toLowerCase().includes(q));
+    const matchedUnits = units.filter(u => (u.name + ' ' + u.address + ' ' + u.type + ' ' + (u.services || '')).toLowerCase().includes(q));
+    
+    let res = '';
+    if (matchedDocs.length) {
+      res += matchedDocs.map(docCard).join('');
+    }
+    if (matchedUnits.length) {
+      res += '<div style="margin-top:1rem"><b>Unidades encontradas:</b></div>' + matchedUnits.map(unitCard).join('');
+    }
+    if (!matchedDocs.length && !matchedUnits.length) {
+      res = '<p style="text-align:center;color:var(--mut);padding:1.5rem">Nenhum médico ou posto encontrado com essa busca.</p>';
+    }
+    $('#home-docs').innerHTML = res;
   };
 }
 
@@ -1001,7 +1082,7 @@ async function vServ() {
     </div>
     <div class="rt-card" data-go="ajustes">
       <div class="rt-btn">+</div>
-      <div><b>Acessibilidade</b><span class="meta">Voz e contraste</span></div>
+      <div><b>Acessibilidade</b><span class="meta">Voz e perfil</span></div>
       <span class="val">Configurar</span>
     </div>
   </div>`);
@@ -1065,35 +1146,56 @@ async function vDocs() {
           </div>
         `).join('') || '<p class="mut">Sem unidade vinculada.</p>'}
       </article>
-    `).join('') || '<p style="text-align:center;padding:2rem">Nenhum médico encontrado com esse filtro.</p>'}
+    `).join('') || '<p style="text-align:center;padding:2rem;color:var(--mut)">Nenhum médico encontrado com esse filtro.<br><button class="btn s" data-act="clear-filter" style="margin-top:.8rem">Limpar filtros</button></p>'}
   </div>`);
 }
 
 async function vBook() {
   const [units, docs] = await Promise.all([get('units'), get('doctors')]);
-  const b = st.book, dl = docs.filter(d => d.units.some(u => u.unit_id == b.unit)), doc = dl.find(d => d.id == b.doc);
-  let slots = null, msg = '';
-  if (doc && b.day) {
-    slots = await api(`/api/slots?doctor_id=${b.doc}&unit_id=${b.unit}&day=${b.day}`);
-    if (!slots.length) msg = `Sem horários livres neste dia. Atendimento: ${availText(doc.units.find(u => u.unit_id == b.unit))}.`;
+  const b = st.book;
+  
+  if (b.doc && !b.unit) {
+    const docObj = docs.find(d => d.id == b.doc);
+    if (docObj && docObj.units && docObj.units.length) {
+      b.unit = String(docObj.units[0].unit_id);
+    }
   }
+
+  const dl = docs.filter(d => !b.unit || d.units.some(u => u.unit_id == b.unit));
+  const doc = docs.find(d => d.id == b.doc);
+  
+  let slots = null, msg = '';
+  if (doc && b.unit && b.day) {
+    slots = await api(`/api/slots?doctor_id=${b.doc}&unit_id=${b.unit}&day=${b.day}`);
+    if (!slots.length) {
+      const uAvail = doc.units.find(u => u.unit_id == b.unit);
+      msg = `Sem horários livres neste dia. Atendimento: ${availText(uAvail || doc.units[0] || {})}.`;
+    }
+  }
+  
   const opt = (a, sel, fn) => a.map(x => `<option value="${x.id}" ${x.id == sel ? 'selected' : ''}>${esc(fn(x))}</option>`).join('');
+
   setMain(`
   <div class="demo">🔬 Agendamento de demonstração da Feira de Ciências</div>
-  <label>1. Unidade<select data-b="unit"><option value="">Escolha a unidade</option>${opt(units, b.unit, u => u.name)}</select></label>
-  ${b.unit ? `<label>2. Médico<select data-b="doc"><option value="">Escolha o médico</option>${opt(dl, b.doc, d => `${d.specialty} — ${d.name}`)}</select></label>${dl.length ? '' : '<p class="mut">Nenhum médico nesta unidade.</p>'}` : ''}
-  ${doc ? `<label>3. Data<input type="date" data-b="day" min="${today()}" value="${b.day || ''}"></label>` : ''}
-  ${msg ? `<p class="bad" role="alert">${esc(msg)}</p>` : ''}
-  ${slots && slots.length ? `<label>4. Horário</label><div class="slots">${slots.map(s => `<button class="slot ${s === b.slot ? 'on' : ''}" data-act="slot" data-v="${s}">${s}</button>`).join('')}</div>
-  <label>5. Seu nome (pode ser fictício)<input id="pn" maxlength="80" autocomplete="off" value="${esc(b.name || '')}"></label>
-  <button class="btn" data-act="confirm">Confirmar agendamento</button>` : ''}`);
+  <label>1. Unidade de Saúde<select data-b="unit"><option value="">Escolha a unidade</option>${opt(units, b.unit, u => u.name)}</select></label>
+  ${b.unit ? `<label>2. Médico Especialista<select data-b="doc"><option value="">Escolha o médico</option>${opt(dl, b.doc, d => `${d.specialty} — ${d.name}`)}</select></label>${dl.length ? '' : '<p class="mut">Nenhum médico disponível nesta unidade.</p>'}` : ''}
+  ${doc && b.unit ? `<label>3. Data da consulta<input type="date" data-b="day" min="${today()}" value="${b.day || ''}"></label>` : ''}
+  ${msg ? `<p class="bad" role="alert" style="margin-top:.6rem">${esc(msg)}</p>` : ''}
+  ${slots && slots.length ? `
+    <label>4. Horário disponível</label>
+    <div class="slots">${slots.map(s => `<button class="slot ${s === b.slot ? 'on' : ''}" data-act="slot" data-v="${s}">${s}</button>`).join('')}</div>
+    <label>5. Seu nome<input id="pn" maxlength="80" autocomplete="off" value="${esc(b.name || st.prefs.userName || 'Denis H')}"></label>
+    <button class="btn" data-act="confirm">Confirmar agendamento</button>` : ''}
+  `);
 }
 
 async function vDone() {
   const r = st.done; if (!r) { location.hash = '#/agendar'; return; }
   setMain(`<div class="card"><div class="ok-big" aria-hidden="true">&#10003;</div><h2 style="text-align:center">Agendamento confirmado</h2><div class="code" aria-label="Código">${esc(r.code)}</div>
-  <p style="text-align:center"><b>${fd(r.day)} às ${esc(r.slot)}</b><br>${esc(r.specialty)} com ${esc(r.doctor)}<br><span class="mut">${esc(r.unit)}</span></p><div class="demo">Demonstração da Feira: consulta fictícia.</div>
-  <button class="btn" data-act="new-book">Novo agendamento</button></div>`);
+  <p style="text-align:center"><b>${fd(r.day)} às ${esc(r.slot)}</b><br>${esc(r.specialty)} com ${esc(r.doctor)}<br><span class="mut">${esc(r.unit)}</span></p>
+  <p style="text-align:center;font-size:.9rem;color:var(--pri-dark)">Paciente: <b>${esc(r.patient_name || st.prefs.userName || 'Denis H')}</b></p>
+  <div class="demo">Demonstração da Feira: consulta fictícia interativa.</div>
+  <button class="btn" data-act="new-book">Fazer outro agendamento</button></div>`);
 }
 
 async function vNews() {
@@ -1103,10 +1205,32 @@ async function vNews() {
 }
 
 async function vSet() {
-  setMain(`<h2>Acessibilidade</h2><div class="card"><label class="ck"><input type="checkbox" data-p="hc" ${st.prefs.hc ? 'checked' : ''}>Modo de alto contraste</label>
-  <p><b>Tamanho do texto</b></p><button class="btn s" data-act="fs-" aria-label="Diminuir texto">A−</button><button class="btn s" data-act="fs+" aria-label="Aumentar texto">A+</button>
-  <br><button class="btn s" data-act="say-screen">Ouvir esta tela</button><button class="btn s" data-act="stop">Parar leitura</button></div>
-  <h2>Conexão</h2><div class="card"><p class="mut">Use antes da apresentação para conferir se o servidor e o banco estão respondendo.</p><button class="btn s" data-act="health">Testar conexão</button><p id="hs" role="status"></p></div>`);
+  setMain(`
+  <h2>Perfil & Personalização</h2>
+  <div class="card">
+    <label>Como prefere ser chamado?
+      <input id="pref_username" maxlength="50" value="${esc(st.prefs.userName || 'Denis H')}" placeholder="Digite seu nome">
+    </label>
+    <button class="btn s" data-act="save-pref-name" style="margin-top:.8rem">Salvar nome</button>
+  </div>
+
+  <h2>Acessibilidade</h2>
+  <div class="card">
+    <label class="ck"><input type="checkbox" data-p="hc" ${st.prefs.hc ? 'checked' : ''}>Modo de alto contraste</label>
+    <p style="margin:.8rem 0 .4rem"><b>Tamanho do texto</b></p>
+    <button class="btn s" data-act="fs-" aria-label="Diminuir texto">A−</button>
+    <button class="btn s" data-act="fs+" aria-label="Aumentar texto">A+</button>
+    <br><br>
+    <button class="btn s" data-act="say-screen">Ouvir esta tela</button>
+    <button class="btn s" data-act="stop">Parar leitura</button>
+  </div>
+
+  <h2>Conexão</h2>
+  <div class="card">
+    <p class="mut">Verifique se o servidor e o banco de dados estão respondendo em tempo real.</p>
+    <button class="btn s" data-act="health">Testar conexão</button>
+    <p id="hs" role="status" style="margin-top:.6rem"></p>
+  </div>`);
 }
 
 /* ---------- AÇÕES ---------- */
@@ -1117,6 +1241,7 @@ async function confirmBook() {
   const btn = $('[data-act=confirm]'); btn.disabled = true; btn.textContent = 'Agendando…';
   try {
     st.done = await api('/api/appointments', { method: 'POST', body: JSON.stringify({ doctor_id: +b.doc, unit_id: +b.unit, day: b.day, slot: b.slot, patient_name: name }) });
+    st.done.patient_name = name;
     st.book = {}; location.hash = '#/confirmacao';
   } catch (e) { toast(e.message); b.slot = ''; await vBook(); }
 }
@@ -1129,24 +1254,55 @@ const ACT = {
   stop: () => speechSynthesis.cancel(),
   'units-doctors': el => { st.filter = { unit: el.dataset.unit }; location.hash = '#/medicos'; },
   'book-unit': el => { st.book = { unit: el.dataset.unit }; location.hash = '#/agendar'; },
-  'book-doc': el => { st.book = { unit: el.dataset.unit, doc: el.dataset.doc }; location.hash = '#/agendar'; },
+  'book-doc': el => { st.book = { unit: el.dataset.unit || '', doc: el.dataset.doc }; location.hash = '#/agendar'; },
   'new-book': () => { st.done = null; st.book = {}; location.hash = '#/agendar'; },
+  'clear-filter': () => { st.filter = {}; vDocs().catch(showErr); },
+  'save-pref-name': () => { const inp = $('#pref_username'); if (inp) setUserName(inp.value); },
   slot: el => { st.book.slot = el.dataset.v; document.querySelectorAll('.slot').forEach(b => b.classList.toggle('on', b === el)); },
   confirm: confirmBook,
   fly: el => { const u = st.mapUnits[+el.dataset.i]; st.map && st.map.flyTo([u.lat, u.lng], 17); },
-  'fs-': () => { st.prefs.fs = Math.max(14, st.prefs.fs - 2); applyPrefs(); },
-  'fs+': () => { st.prefs.fs = Math.min(28, st.prefs.fs + 2); applyPrefs(); },
+  'fs-': () => { st.prefs.fs = Math.max(14, (st.prefs.fs || 16) - 2); applyPrefs(); },
+  'fs+': () => { st.prefs.fs = Math.min(28, (st.prefs.fs || 16) + 2); applyPrefs(); },
   health: async () => {
     const o = $('#hs'); o.textContent = 'Testando…'; const t = Date.now();
     try { await api('/api/health'); o.innerHTML = `<span class="chip ok">Servidor e banco OK (${Date.now() - t} ms)</span>`; } catch (e) { o.innerHTML = `<span class="bad">Falha: ${esc(e.message)}</span>`; }
   },
 };
 
-document.addEventListener('click', e => {
-  const el = e.target.closest('[data-go],[data-act]'); if (!el) return;
+document.addEventListener('click', async e => {
+  const editBtn = e.target.closest('#btn-edit-name, #greet-name');
+  if (editBtn) {
+    promptEditName();
+    return;
+  }
+  const avatarClick = e.target.closest('#user-avatar');
+  if (avatarClick) {
+    promptEditName();
+    return;
+  }
+
+  const el = e.target.closest('[data-go],[data-act],[data-cat]');
+  if (!el) return;
+
+  if (el.dataset.cat) {
+    const cat = el.dataset.cat.toLowerCase().trim();
+    try {
+      const specs = await get('specialties');
+      const found = specs.find(s => {
+        const sName = s.name.toLowerCase();
+        return sName.includes(cat.split(' ')[0]) || cat.includes(sName.split(' ')[0]);
+      });
+      st.filter = { spec: found ? found.id : '' };
+    } catch (err) {
+      st.filter = {};
+    }
+    location.hash = '#/medicos';
+    return;
+  }
+
   if (el.dataset.go) {
     location.hash = '#/' + el.dataset.go;
-  } else {
+  } else if (el.dataset.act) {
     ACT[el.dataset.act]?.(el);
   }
 });
@@ -1157,7 +1313,9 @@ document.addEventListener('change', async e => {
   if (t.dataset.f) { (st.filter = st.filter || {})[t.dataset.f] = t.value; vDocs().catch(showErr); }
   if (t.dataset.b) {
     const k = t.dataset.b, b = st.book; b[k] = t.value;
-    if (k === 'unit') { b.doc = ''; b.day = ''; b.slot = ''; } if (k === 'doc') { b.day = ''; b.slot = ''; } if (k === 'day') b.slot = '';
+    if (k === 'unit') { b.doc = ''; b.day = ''; b.slot = ''; }
+    if (k === 'doc') { b.day = ''; b.slot = ''; }
+    if (k === 'day') b.slot = '';
     const pn = $('#pn'); if (pn) b.name = pn.value;
     vBook().catch(showErr);
   }
@@ -1184,9 +1342,14 @@ async function route() {
   if (st.map) { st.map.remove(); st.map = null; }
   
   const isHome = (key === 'home');
-  $('#top-nav').hidden = !isHome;
-  $('#hero-wrap').hidden = !isHome;
-  $('#sub-top').hidden = isHome;
+  const topNav = $('#top-nav');
+  const heroWrap = $('#hero-wrap');
+  const subTop = $('#sub-top');
+  
+  if (topNav) topNav.hidden = !isHome;
+  if (heroWrap) heroWrap.hidden = !isHome;
+  if (subTop) subTop.hidden = isHome;
+  
   $('#title').textContent = r[1];
   $('#main').classList.toggle('plain', !isHome);
 

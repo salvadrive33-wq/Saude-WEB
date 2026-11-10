@@ -159,7 +159,7 @@ def create_app(test_config=None):
                 logging.warning("Conta de administrador %s: %s", "redefinida" if reset else "criada", email)
         elif not q("SELECT 1 FROM admins"):
             logging.error("Nenhum administrador existe. Defina ADMIN_EMAIL e ADMIN_PASSWORD (10+ caracteres).")
-        if os.getenv("SEED_DEMO") == "1" and not q("SELECT 1 FROM units"):
+        if not q("SELECT 1 FROM units"):
             import seed
             seed.run()
 
