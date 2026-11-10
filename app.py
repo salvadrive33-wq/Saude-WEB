@@ -147,12 +147,18 @@ def create_app(test_config=None):
             raise ApiError("Requisição inválida.", 400)
 
     def bootstrap():
-        email, pw = os.getenv("ADMIN_EMAIL"), os.getenv("ADMIN_PASSWORD")
-        if email and pw and not q("SELECT 1 FROM admins"):
+        email, pw = (os.getenv("ADMIN_EMAIL") or "").strip().lower(), os.getenv("ADMIN_PASSWORD") or ""
+        reset = os.getenv("ADMIN_RESET") == "1"  # redefine a conta com os valores atuais das variáveis
+        if email and pw and (reset or not q("SELECT 1 FROM admins")):
             if len(pw) < 10:
-                logging.error("ADMIN_PASSWORD precisa ter 10+ caracteres; conta não criada.")
+                logging.error("ADMIN_PASSWORD precisa ter 10+ caracteres; conta NÃO criada.")
             else:
-                insert("admins", {"email": email.strip().lower(), "password_hash": generate_password_hash(pw)})
+                if reset:
+                    q("DELETE FROM admins", commit=True)
+                insert("admins", {"email": email, "password_hash": generate_password_hash(pw)})
+                logging.warning("Conta de administrador %s: %s", "redefinida" if reset else "criada", email)
+        elif not q("SELECT 1 FROM admins"):
+            logging.error("Nenhum administrador existe. Defina ADMIN_EMAIL e ADMIN_PASSWORD (10+ caracteres).")
         if os.getenv("SEED_DEMO") == "1" and not q("SELECT 1 FROM units"):
             import seed
             seed.run()
